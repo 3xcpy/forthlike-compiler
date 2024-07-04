@@ -1,7 +1,8 @@
-    format ELF64 executable 3
-    segment readable executable
+format ELF64 executable 3
+segment readable executable
 print:
-    call spop
+    mov rax, [r15]    ; POP compiler intrinsic
+    sub r15, 8
     mov rdi, rax
     mov     r9, -3689348814741910323
     sub     rsp, 40
@@ -35,41 +36,19 @@ print:
     syscall
     add     rsp, 40
     ret
-
-spush:
-    add r15, 8
-    mov [r15], rdi
-    ret
-
-spop:
-    mov rax, [r15]
-    sub r15, 8
-    ret
-
-sadd:
-    call spop
-    add [r15], rax
-    ret
-
 entry start
 start:
     mov r15, mem
-    add r15, 8
-    mov QWORD [r15], 8
-
-    mov rdi, 10
-    call spush
-    mov rdi, 69
-    call spush
-    mov rdi, 17
-    call spush
-    call sadd
-    call print
-    call print
-
+   call print
+    add r15, 8    ; PUSH compiler intrinsic
+    mov QWORD [r15], 3
+    add r15, 8    ; PUSH compiler intrinsic
+    mov QWORD [r15], 2
+    mov rax, [r15]    ; POP compiler intrinsic
+    sub r15, 8
+    add [r15], rax    ; ADD compiler intrinsic
     mov rax, 60
     mov rdi, 0
     syscall
-
-    segment readable writable
-mem:  rb 1024
+   segment readable writable
+mem:  rb 4096

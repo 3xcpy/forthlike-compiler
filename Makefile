@@ -1,3 +1,3 @@
 build:
-	fasm test.asm
-	chmod +x ./test
+	fasm test2.asm
+	chmod +x ./test2
