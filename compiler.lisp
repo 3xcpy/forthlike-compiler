@@ -131,9 +131,6 @@
       (data_segment)
       (allocate_stack 4096))))
 
-(defun main ()
-  (compile-code (if (uiop:command-line-arguments)(uiop:read-file-string (car (uiop:command-line-arguments))))))
-
 ;; Utility for tokenizer
 (defun delimiterp (c)
   (char= c #\Space))
