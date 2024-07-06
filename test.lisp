@@ -1,3 +1,5 @@
+(defparameter *words* ())
+
 (defun program-header ()
   (format t "format ELF64 executable 3~%")
   (format t "segment readable executable~%"))
@@ -11,12 +13,22 @@
   (format t "    mov rax, [r15]    ; POP compiler intrinsic~%")
   (format t "    sub r15, 8~%"))
 
+(defun int_drop ()
+  (format t "    sub r15, 8~%"))
+
 (defun int_add ()
   (int_pop)
   (format t "    add [r15], rax    ; ADD compiler intrinsic~%"))
 
-(defun int_print ()
-  (format t "    call print~%"))
+(defun int_mul ()
+  (int_pop)
+  (format t "    mov rbx, rax~%")
+  (int_pop)
+  (format t "    mul rbx    ; MUL compiler intrinsic~%")
+  (int_push "rax"))
+
+(defun int_call (word)
+  (format t "    call ~a~%" word))
 
 (defun builtin_print_definition ()
   (format t "print:~%")
@@ -55,6 +67,16 @@
   (format t "    add     rsp, 40~%")
   (format t "    ret~%"))
 
+(defun builtin_emit_definition ()
+  (format t "emit:~%")
+  (format t "    mov rax, 1  ~%")
+  (format t "    mov rdi, 1  ~%")
+  (format t "    mov rsi, r15~%")
+  (format t "    mov rdx, 1  ~%")
+  (format t "    syscall     ~%")
+  (int_drop)
+  (format t "    ret         ~%"))
+
 (defun int_exit (exit_code)
   (format t "    mov rax, 60~%")
   (format t "    mov rdi, ~a~%" exit_code)
@@ -73,31 +95,19 @@
 (defun init_stack ()
   (format t "    mov r15, mem~%"))
 
-(defun make-test-program ()
-  (with-open-file
-      (strem "/home/coder/projects/joyful/test2.asm" :direction :output :if-exists :supersede)
-    (let ((*standard-output* strem))
-      ;; initialization
-      (program-header)
-      (builtin_print_definition)
-      (entry_point)
-      (init_stack)
-      ;; program
-      (int_push 10)
-      (int_push 20)
-      (int_add)
-      (int_print)
-      ;; end of program
-      (int_exit 0)
-      (data_segment)
-      (allocate_stack 1024))))
-
 (defun codegen (tokens)
   (loop for tok in tokens do
         (cond ((numberp tok) (int_push tok))
-              ((equal tok "+") (int_add))
-              ((equal tok ".") (int_print))
-              (t (error "illegal opcode")))))
+              (t (compile-word tok)))))
+
+(defun compile-word (word)
+  (cond
+    ((string-equal word "+") (int_add))
+    ((string-equal word "*") (int_mul))
+    ((string-equal word ".") (int_call "print"))
+    ((string-equal word "emit") (int_call "emit"))
+    (t (with-open-file (l "./log" :direction :output :if-exists :supersede)
+         (format l "ERROR: undefined word ~a~%" word)))))
 
 (defun tokenize (text)
   (let ((result ())
@@ -105,20 +115,24 @@
     (loop for tok in tokens do
           (cond ((parse-integer tok :junk-allowed t) (setf result (cons (parse-integer tok) result)))
                 (t (setf result (cons tok result)))))
-    result))
+    (reverse result)))
 
-(defun compile-code (code out-path)
+(defun compile-code (code)
   (with-open-file
-      (s out-path :direction :output :if-exists :supersede)
+      (s "./out.asm" :direction :output :if-exists :supersede)
     (let ((*standard-output* s))
       (program-header)
       (builtin_print_definition)
+      (builtin_emit_definition)
       (entry_point)
       (init_stack)
       (codegen (tokenize code))
       (int_exit 0)
       (data_segment)
       (allocate_stack 4096))))
+
+(defun main ()
+  (compile-code (if (uiop:command-line-arguments)(uiop:read-file-string (car (uiop:command-line-arguments))))))
 
 ;; Utility for tokenizer
 (defun delimiterp (c)
